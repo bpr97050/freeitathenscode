@@ -1,0 +1,529 @@
+#!/bin/bash
+
+# *--* Identify box as 32 or 64 bit capable. *--*
+Get_Address_Len() {
+
+    address_len=32
+    lscpu |grep -P '^Arch.+x86_64$' >&2
+    for fl in $(cat /proc/cpuinfo |grep '^flags')
+    do
+        if [ $fl == 'lm' ]
+        then
+            address_len=64
+            break
+        fi
+    done
+    export address_len
+
+    return 0
+}
+
+Get_CPU_ADDRESS() {
+
+    echo 'Get_CPU_ADDRESS is deprecated. Use Get_Address_Len.' >&2
+    Get_Address_Len
+    CPU_ADDRESS=$address_len
+
+}
+
+Get_DISTRO() {
+    DISTRO=$1
+    local RC=0
+
+    GEB_distro=$(lsb_release -a 2>/dev/null|grep '^Distributor ID:'\
+        |cut -f2 -d: |sed -e 's/^[ \t]*//')
+    Pauze "System reports distro as ${GEB_distro}."
+
+    if [ -z ${DISTRO} ]
+    then
+        # NO Distribution name from Command Line Interface
+        if [ "${SESSION}." == 'Lubuntu.' ]
+        then
+            DISTRO='lubuntu'
+            Pauze "Using $DISTRO as distribution name."
+            return 1
+        else
+            if [ -z ${GEB_distro} ]
+            then
+                # ... and NO System-detected Distro name...
+                return 17
+            fi
+            # Use System-detected Distro name.
+            DISTRO=$GEB_distro
+        fi
+        # Return code 1 indicates System provides Distro name
+        return 1
+    fi
+
+    if [ "${DISTRO}." == "${GEB_distro}." ]
+    then
+        Pauze "System distro value (${GEB_distro}) agrees with your input (${DISTRO})."
+    fi
+
+    return $RC
+}
+
+# copied from /usr/bin/xdg-open
+detectDE()
+{
+    if [ x"$KDE_FULL_SESSION" = x"true" ]; then DE=kde;
+    elif [ x"$GNOME_DESKTOP_SESSION_ID" != x"" ]; then DE=gnome;
+    elif `dbus-send --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.GetNameOwner string:org.gnome.SessionManager > /dev/null 2>&1` ; then DE=gnome;
+    elif xprop -root _DT_SAVE_MODE 2> /dev/null | grep ' = \"xfce4\"$' >/dev/null 2>&1; then DE=xfce;
+    elif [ x"$DESKTOP_SESSION" = x"LXDE" ]; then DE=lxde;
+    else DE=""
+    fi
+}
+
+# *--* Confirm Distro name with user *--*
+Confirm_DISTRO_CPU() {
+    Set_RC=${1:-20}
+
+    case $Set_RC in
+        0)
+            prettyprint 'n,1,33,40,M,n' "Evaluating your input: ${DISTRO}"
+            ;;
+        1)
+	    Pauze 'No distro supplied in parms. (e.g., -d BLOATWARE)...'
+            Answer='N'
+            Pause_n_Answer 'Y|N(Default='$Answer')' \
+            "...system value ${DISTRO} is used, OK? "
+
+            if [ "${Answer}." != 'Y.' ]
+            then 
+                Pauze "Exiting."
+                return 12
+            fi
+            ;;
+        *)
+            echo 'nothing possible now.'
+            return $Set_RC
+            ;;
+    esac
+
+    good_distro_ind=88
+    valid_or_not='an Invalid'
+    case $DISTRO in
+        LinuxMint)
+	        good_distro_ind=0
+            valid_or_not='a valid'
+            DISTRO='mint'
+            Pauze 'Substituting more regular name '$DISTRO'.'
+            ;;
+        lubuntu|Ubuntu|mint)
+	        good_distro_ind=0
+            valid_or_not='a valid'
+            ;;
+        *)
+            Pauze 'ERROR,Distro name wha?'
+            ;;
+    esac
+
+    prettyprint '1,32,40,M,0,n' $DISTRO' is '$valid_or_not' distribution name.'
+    if [ $good_distro_ind -eq 0 ]
+    then
+	    Pauze "INFO,Confirmed $DISTRO on ${address_len}-bit box."
+    fi
+
+    return $good_distro_ind
+}
+
+Contact_server() {
+    if [[ $(ssh -p8222 frita@192.168.1.9 'echo $HOSTNAME') =~ 'nuvo-servo' ]]
+    then
+        Pauze 'Checked Server is valid: 192.168.1.9'
+    fi
+}
+
+Correct_subversion_ssh() {
+    for subv_home in ${HOME}/.subversion /etc/subversion
+    do
+        [[ -d ${subv_home} ]] || return 8
+
+        subv_conf="${subv_home}/config"
+        if [ -f ${subv_conf} ]
+        then
+            Answer='N'
+            Pause_n_Answer 'Y|N' "Fix $subv_conf for Frita's ssh connection (Y|N)? "
+            case $Answer in
+                Y)
+                    sudo perl -pi'.bak' -e 's/#\s*ssh\b(.+?ssh)\s+-q(.+)$/ssh${1} -v${2}/' ${subv_conf}
+                    [[ $? -eq 0 ]] && break
+                    ;;
+                *)
+                    prettyprint 'n,t,34,47,M,0' 'No changes made...'
+                    ;;
+            esac
+        fi
+    done
+    return 0
+
+}
+
+Set_background() {
+
+    [[ -z "$Backgrounds_location" ]] && return 9
+    [[ -d "$Backgrounds_location" ]] || return 5
+    [[ -z "$FreeIT_image" ]] && return 6
+
+    Pauze "Checking background file location: $Backgrounds_location / $FreeIT_image"
+    Have_BG=$(ls -l ${Backgrounds_location}/$FreeIT_image 2>/dev/null\
+                || find ${Backgrounds_location}/ -name "$FreeIT_image"\
+                || echo 'NADA')
+    if [ "$Have_BG" == 'NADA' ]
+    then
+        unset xR
+        echo 'Shall I try to retrieve' $FreeIT_image '(Y|N)?' 
+        read xR
+        case $xR in
+            y|Y)
+                cp -iv /home/oem/freeitathenscode/image_scripts/$FreeIT_image\
+                ${Backgrounds_location}/ 2>/dev/null || return 15
+                ;;
+            *)
+                Pauze 'WARNING,OK, Handle it later...'
+                ;;
+        esac
+    fi
+}
+
+# *-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-*
+
+print_presets() {
+    #  Preset Info: Bold Blue on Black, NO BleedOver, Newline
+    export PP_info='1,34,40,M,0,n'
+    #  Preset Additional Info: Blue on Black, NO BleedOver, Newline
+    export PP_add_info='0,34,40,M,0,n'
+    #  Preset Warning: Bold Yellow on Black, NO BleedOver, Newline
+    export PP_warn='1,33,40,M,0,n'
+    #  Preset Error: Bold Red on Black, NO BleedOver, Newline
+    export PP_err='1,31,40,M,0,n'
+}
+
+prettyprint() {
+    set +x
+    Attribute=${1:-'n,7,30,47,M,n,0'}
+    shift
+    Message=$@
+
+    shopt -u nullglob
+
+    declare -r colorattr_pre="\e["
+    COLORATTR=''
+    colorattr_post='m'
+
+    OLDIFS=$IFS;IFS=$','
+    declare Attr_a=($Attribute)
+    IFS=$' \t\n'
+    declare -r Attr_len=${#Attr_a[*]}
+    Attr_hiidx=$(($Attr_len-1))
+
+    last_token=''
+    for idx in $(seq 0 $Attr_hiidx)
+    do
+        token=${Attr_a[$idx]}
+        [[ -z "${token}" ]] && break
+        [[ "${token}" == '' ]] && break
+        Ramp_up $token
+    done
+    [[ ${last_token} == *[!0]* ]] && echo -ne "\e[00m"
+
+    return 0
+}
+
+Ramp_up() {
+    local token=$1
+    local RC=0
+
+    case $token in
+        c)
+            clear
+            ;;
+        n)
+            echo -ne "\n"
+            ;;
+        t)
+            echo -ne "\t"
+            ;;
+        M) 
+            echo -ne ${colorattr_pre}${COLORATTR}${colorattr_post}$Message
+            COLORATTR=''
+            ;;
+        A[[:digit:]]*)
+            declare -a mess_parts_a=($Message)
+            declare -i mess_ix=$(echo $token |tr -d 'A')
+            Is_numeric_tr $mess_ix &&\
+                test $mess_ix -lt ${#mess_parts_a[*]} &&\
+                echo -ne \
+                "${colorattr_pre}${COLORATTR}${colorattr_post}"${mess_parts_a[$mess_ix]} &&\
+                COLORATTR=''
+            ;;
+        B) 
+            echo -ne "${colorattr_pre}${COLORATTR}${colorattr_post} "
+            ;;
+        *)
+            Is_numeric_tr $token && Is_numeric_re $token && Yes_its_numeric $token
+            ;;
+    esac
+ 
+    last_token=$token
+    return $RC
+}
+     # [[ -z "$Message" ]] && Message='*-----------*'
+     # e) set_send_also_to_std_error_ON (E=ONLY_to_stderr)
+     # l) set_send_also_logger_ON (L ONLY_to)
+     # 9) random foreground color
+
+Is_numeric_tr() {
+    local testchar=$1
+    shopt -u nullglob
+
+    nondigits=$(echo -n $testchar |tr -d [:digit:] |wc --bytes)
+
+    return $nondigits
+}
+
+Is_numeric_re() {
+    local testchar=$1
+
+    [[ $testchar =~ [^[:digit:]] ]] && return 1
+
+    return 0
+}
+
+Is_numeric_simple_charclass() {
+    local testchar=$1
+
+    case $testchar in
+        "")
+            return 25
+            ;;
+        *[!0-9]*)
+            return 1
+            ;;
+    esac
+
+    return 0
+}
+
+Yes_its_numeric() {
+    local Digi=$1
+    local RC=0
+
+    case $Digi in
+        [013457])
+            COLORATTR='0'${COLORATTR}';'${Digi}
+            ;;
+        [[:digit:]])
+            echo $Digi 'NOT VALID Character class digit. Discarding.' >&2
+            return 4
+            ;;
+        0[013457])
+            COLORATTR=${COLORATTR}';'${Digi}
+            ;;
+        00|01|03|04|05|07)
+            COLORATTR=${COLORATTR}';'${Digi}
+            ;;
+        0[[:digit:]])
+            echo 'Character class digit' $Digi 'NOT VALID ATTR. Discarding.' >&2
+            return 4
+            ;;
+        0[013457])
+            COLORATTR=${COLORATTR}';'${Digi}
+            ;;
+        00|01|03|04|05|07)
+            COLORATTR=${COLORATTR}';'${Digi}
+            ;;
+        0[[:digit:]])
+            echo 'Character class digit' $Digi 'NOT VALID ATTR. Discarding.' >&2
+            return 4
+            ;;
+        3[0-7])
+            COLORATTR=${COLORATTR}';'${Digi}
+            ;;
+        4[0-7])
+            COLORATTR=${COLORATTR}';'${Digi}
+            ;;
+        *)
+            echo 'Unknown Attribute Code' $Digit '. Discarding' >&2
+            return 24
+            ;;
+    esac
+        #introduce 9 for random foreground color
+
+    return $RC
+}
+
+Pauze() {
+
+    Log_mess $@
+    # !Print to terminal only if this session is interactive.
+    [[ -z Runner_shell_as ]] && Runner_shell_as='?'
+    if [[ $Runner_shell_as != *i* ]]
+    then
+        return 4
+    fi
+
+    set +u
+    IFS=$' \t\n'
+    local RC=0
+
+    echo -e "\n"
+    while [ $# -gt 0 ]
+    do
+        Zanned_response $1 || ((RC+=$?))
+        shift 1
+    done
+
+    read -p '<ENTER; timeout in 10 secs...>' -t10
+
+    return $RC
+}
+
+Pause_n_Answer() {
+    set +u
+    IFS=$' \t\n'
+    Prompt2U=$1
+    shift
+    local RC=0
+
+    while [ -n "$1" ]
+    do
+        Zanned_response $1 || ((RC+=$?))
+        shift 1
+    done
+
+    #[[ $Prompt2U =~ [Y|y|N|n] ]] Prompt2U='Y|N' RC=1
+    Prompt2U='====> Your response {'${Prompt2U}'}? '
+    echo ''
+    read -a User_resp -p "$Prompt2U"
+    Answer=${User_resp[0]}
+
+    return $RC
+}
+
+Zanned_response() {
+    mess=${@:-'ERROR,No Input'}
+    local RC=0
+
+    basic_emph=34
+    if [[ $mess =~ ',' ]]
+    then
+        Try_level=$(echo $mess |cut -f1 -d,)
+        Try_mess=$(echo $mess |cut -f2- -d,)
+        Do_swift='Y'
+        case $Try_level in
+        ERR*)
+            basic_emph=31
+            ;;
+        WARN*)
+            basic_emph=35
+            ;;
+        INFO*)
+            basic_emph=36
+            ;;
+        *)
+            Do_swift='N'
+            ;;
+        esac
+        [[ $Do_swift == 'Y' ]] && mess=$Try_mess
+    fi
+
+    [[ -z "$mess" ]] && mess='Unknown Message..????'
+    #rettyprint "n,1,${basic_emph},47,M,0,n" $mess || RC=$?
+    prettyprint "n,1,${basic_emph},40,M,0,n" $mess || RC=$?
+
+    return $RC
+}
+
+Run_Cap_Out() {
+    cmd=$1
+    shift
+    local RC=0
+    [[ -z $cmd ]] && return 8
+    typecmd=$(type -t $cmd)
+    [[ -z $typecmd ]] && return 9
+
+    [[ -z $Messages_O ]] && Messages_O='/tmp/Generic_log'
+    [[ -z $Errors_O ]] && Errors_O='/tmp/Generic_err'
+
+    if [ $typecmd == 'file' ]
+    then
+        if [[ ! $cmd =~ '/' ]]
+        then
+            cmd=$(which $cmd)
+        fi
+    fi
+    stuff=$@
+    $cmd $stuff 2>>${Errors_O} |tee -a ${Messages_O} || RC=$?
+    return $RC
+}
+
+Log_mess() {
+    Message=$(echo $@ |tr '-' '_')
+    [[ -z $Message ]] && return 13
+
+    LOGGER=$(which logger)
+    [[ -z $LOGGER ]] && return 12
+
+    [[ -f ${Messages_O} ]] && echo $Message >>${Messages_O}
+    $LOGGER -t 'COMMONALITY' $Message || return $?
+
+    return 0
+}
+
+Time_to_kill() {
+    u_PID=$1
+    [[ -z u_PID ]] && return 4
+    local RC=0
+
+    Mess=$@
+    prettyprint '1,34,40,M,0' "$Mess"
+    while [ $u_PID -gt 1 ]
+    do
+        prettyprint '1,35,40,M,0' '...'
+        sleep 0.8
+        ps -p $u_PID -o time= &>/dev/null ||u_PID=-1
+    done
+    prettyprint 'n,t,0,1,34,40,M,0,n' '...DONE!'
+
+    return $RC
+}
+ 
+#/usr/share/lubuntu/wallpapers/: directory
+#udevadm info --query=env --name=/dev/sda1 |grep UUID
+
+#XFCE Only:
+    #ensure existence of : /home/*/.config/xfce4/xfconf/
+        #xfce-perchannel-xml/xfce4-session.xml: 
+        #<property name="SessionName" type="string" value="Default"/>
+
+        #prettyprint 1,32,47,M,0 Valid
+#echo -e "\n\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+#echo -n token=$token |od -Ax -taz
+#echo Msg=$Message
+#echo -n $token |tr -d [:digit:]
+#echo  Pipestatus1 = ${PIPESTATUS[1]}
+#Digit=aa
+#  [[ $Digit =~ [^[:digit:]] ]] && echo yes
+#    yes
+#Digit=11111122222
+#  [[ $Digit =~ [^[:digit:]] ]] && echo yes
+#  (rc1)
+
+#twenty_grand() {
+#    local Digit=$1
+#
+#    if [ $Digit -lt 8 ]
+#    then COLORATTR=${COLORATTR}';'${Digit}
+#    elif [ $Digit -ge 30 ]
+#    then
+#        if [ $Digit -lt 38 ];then COLORATTR=${COLORATTR}';'${Digit};fi
+#    elif [ $Digit -ge 40 ]
+#    then
+#        if [ $Digit -lt 48 ];then COLORATTR=${COLORATTR}';'${Digit};fi
+#    fi
+#
+#    return $?
+#}
+
