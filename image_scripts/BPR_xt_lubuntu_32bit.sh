@@ -138,7 +138,7 @@ Chromium_stuff() {
     then
     # Ensure certain Chromium Flags settings are in place.
     sudo sed -i 's/CHROMIUM_FLAGS=""/CHROMIUM_FLAGS="--start-maximized\
-        --disable-new-tab-first-run --no-first-run\
+        --disable-new-tab-first-run --no-first-run --ssl-version-min=tls1\
         --disable-google-now-integration"/g' /etc/chromium-browser/default
     fi
 
