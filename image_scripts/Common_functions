@@ -1,18 +1,27 @@
-#!/bin/bash
-
+# *Common_functions: to be sourced
 # *--* Identify box as 32 or 64 bit capable. *--*
 Get_Address_Len() {
+    use_strict=${1:-'n'}
+    sanity_check=${2:-'n'}
+    shift 2
+    RC=0
+
+    which lscpu || ( [[ $use_strict == 'y' ]] && return 16 )
 
     address_len=32
-    lscpu |grep -P '^Arch.+x86_64$' >&2
-    for fl in $(cat /proc/cpuinfo |grep '^flags')
-    do
-        if [ $fl == 'lm' ]
+    lscpu |grep -P '^Arch.+x86_64$' >&2 && address_len=64
+
+    if [ $sanity_check == 'y' ]
+    then
+        alt_address_len=32
+        cat /proc/cpuinfo\
+            |grep -P '^flags\s+:.+\blm\b' >&2\
+            && alt_address_len=64
+        if [ $address_len -ne $alt_address_len ]
         then
-            address_len=64
-            break
+            echo 'Discrepancy in finding cpu address size '$address_len' '$alt_address_len
         fi
-    done
+    fi
     export address_len
 
     return 0
@@ -26,43 +35,6 @@ Get_CPU_ADDRESS() {
 
 }
 
-Get_DISTRO() {
-    DISTRO=$1
-    local RC=0
-
-    GEB_distro=$(lsb_release -a 2>/dev/null|grep '^Distributor ID:'\
-        |cut -f2 -d: |sed -e 's/^[ \t]*//')
-    Pauze "System reports distro as ${GEB_distro}."
-
-    if [ -z ${DISTRO} ]
-    then
-        # NO Distribution name from Command Line Interface
-        if [ "${SESSION}." == 'Lubuntu.' ]
-        then
-            DISTRO='lubuntu'
-            Pauze "Using $DISTRO as distribution name."
-            return 1
-        else
-            if [ -z ${GEB_distro} ]
-            then
-                # ... and NO System-detected Distro name...
-                return 17
-            fi
-            # Use System-detected Distro name.
-            DISTRO=$GEB_distro
-        fi
-        # Return code 1 indicates System provides Distro name
-        return 1
-    fi
-
-    if [ "${DISTRO}." == "${GEB_distro}." ]
-    then
-        Pauze "System distro value (${GEB_distro}) agrees with your input (${DISTRO})."
-    fi
-
-    return $RC
-}
-
 # copied from /usr/bin/xdg-open
 detectDE()
 {
@@ -72,118 +44,6 @@ detectDE()
     elif xprop -root _DT_SAVE_MODE 2> /dev/null | grep ' = \"xfce4\"$' >/dev/null 2>&1; then DE=xfce;
     elif [ x"$DESKTOP_SESSION" = x"LXDE" ]; then DE=lxde;
     else DE=""
-    fi
-}
-
-# *--* Confirm Distro name with user *--*
-Confirm_DISTRO_CPU() {
-    Set_RC=${1:-20}
-
-    case $Set_RC in
-        0)
-            prettyprint 'n,1,33,40,M,n' "Evaluating your input: ${DISTRO}"
-            ;;
-        1)
-	    Pauze 'No distro supplied in parms. (e.g., -d BLOATWARE)...'
-            Answer='N'
-            Pause_n_Answer 'Y|N(Default='$Answer')' \
-            "...system value ${DISTRO} is used, OK? "
-
-            if [ "${Answer}." != 'Y.' ]
-            then 
-                Pauze "Exiting."
-                return 12
-            fi
-            ;;
-        *)
-            echo 'nothing possible now.'
-            return $Set_RC
-            ;;
-    esac
-
-    good_distro_ind=88
-    valid_or_not='an Invalid'
-    case $DISTRO in
-        LinuxMint)
-	        good_distro_ind=0
-            valid_or_not='a valid'
-            DISTRO='mint'
-            Pauze 'Substituting more regular name '$DISTRO'.'
-            ;;
-        lubuntu|Ubuntu|mint)
-	        good_distro_ind=0
-            valid_or_not='a valid'
-            ;;
-        *)
-            Pauze 'ERROR,Distro name wha?'
-            ;;
-    esac
-
-    prettyprint '1,32,40,M,0,n' $DISTRO' is '$valid_or_not' distribution name.'
-    if [ $good_distro_ind -eq 0 ]
-    then
-	    Pauze "INFO,Confirmed $DISTRO on ${address_len}-bit box."
-    fi
-
-    return $good_distro_ind
-}
-
-Contact_server() {
-    if [[ $(ssh -p8222 frita@192.168.1.9 'echo $HOSTNAME') =~ 'nuvo-servo' ]]
-    then
-        Pauze 'Checked Server is valid: 192.168.1.9'
-    fi
-}
-
-Correct_subversion_ssh() {
-    for subv_home in ${HOME}/.subversion /etc/subversion
-    do
-        [[ -d ${subv_home} ]] || return 8
-
-        subv_conf="${subv_home}/config"
-        if [ -f ${subv_conf} ]
-        then
-            Answer='N'
-            Pause_n_Answer 'Y|N' "Fix $subv_conf for Frita's ssh connection (Y|N)? "
-            case $Answer in
-                Y)
-                    sudo perl -pi'.bak' -e 's/#\s*ssh\b(.+?ssh)\s+-q(.+)$/ssh${1} -v${2}/' ${subv_conf}
-                    [[ $? -eq 0 ]] && break
-                    ;;
-                *)
-                    prettyprint 'n,t,34,47,M,0' 'No changes made...'
-                    ;;
-            esac
-        fi
-    done
-    return 0
-
-}
-
-Set_background() {
-
-    [[ -z "$Backgrounds_location" ]] && return 9
-    [[ -d "$Backgrounds_location" ]] || return 5
-    [[ -z "$FreeIT_image" ]] && return 6
-
-    Pauze "Checking background file location: $Backgrounds_location / $FreeIT_image"
-    Have_BG=$(ls -l ${Backgrounds_location}/$FreeIT_image 2>/dev/null\
-                || find ${Backgrounds_location}/ -name "$FreeIT_image"\
-                || echo 'NADA')
-    if [ "$Have_BG" == 'NADA' ]
-    then
-        unset xR
-        echo 'Shall I try to retrieve' $FreeIT_image '(Y|N)?' 
-        read xR
-        case $xR in
-            y|Y)
-                cp -iv /home/oem/freeitathenscode/image_scripts/$FreeIT_image\
-                ${Backgrounds_location}/ 2>/dev/null || return 15
-                ;;
-            *)
-                Pauze 'WARNING,OK, Handle it later...'
-                ;;
-        esac
     fi
 }
 
@@ -246,9 +106,19 @@ Ramp_up() {
             echo -ne "\t"
             ;;
         M) 
-            echo -ne ${colorattr_pre}${COLORATTR}${colorattr_post}$Message
+            echo -ne ${colorattr_pre}${COLORATTR}'m'$Message
             COLORATTR=''
             ;;
+    F)
+            echo -ne ${colorattr_pre}${COLORATTR}'m'
+        if [ -f $Message ]
+        then
+        cat $Message
+        else
+        echo 'Empty Message File '$Message
+        fi
+            COLORATTR=''
+        ;;
         A[[:digit:]]*)
             declare -a mess_parts_a=($Message)
             declare -i mess_ix=$(echo $token |tr -d 'A')
@@ -358,11 +228,7 @@ Pauze() {
 
     Log_mess $@
     # !Print to terminal only if this session is interactive.
-    [[ -z Runner_shell_as ]] && Runner_shell_as='?'
-    if [[ $Runner_shell_as != *i* ]]
-    then
-        return 4
-    fi
+    [[ "${Not_Batch_Run}." == 'N.' ]] && return 0
 
     set +u
     IFS=$' \t\n'
@@ -385,6 +251,7 @@ Pause_n_Answer() {
     IFS=$' \t\n'
     Prompt2U=$1
     shift
+    Answer=''
     local RC=0
 
     while [ -n "$1" ]
@@ -394,9 +261,11 @@ Pause_n_Answer() {
     done
 
     #[[ $Prompt2U =~ [Y|y|N|n] ]] Prompt2U='Y|N' RC=1
+    set +u
     Prompt2U='====> Your response {'${Prompt2U}'}? '
     echo ''
-    read -a User_resp -p "$Prompt2U"
+    declare -a User_resp
+    read -p "$Prompt2U" -a User_resp
     Answer=${User_resp[0]}
 
     return $RC
@@ -501,7 +370,6 @@ Time_to_kill() {
         #prettyprint 1,32,47,M,0 Valid
 #echo -e "\n\nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 #echo -n token=$token |od -Ax -taz
-#echo Msg=$Message
 #echo -n $token |tr -d [:digit:]
 #echo  Pipestatus1 = ${PIPESTATUS[1]}
 #Digit=aa

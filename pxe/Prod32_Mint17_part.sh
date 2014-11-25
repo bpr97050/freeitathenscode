@@ -63,8 +63,8 @@ Handle_possible_lvm() {
         return 0
     elif [ $accum_RC -lt 10 ] 
     then
-        echo -e "\e[1;31;40mNow REBOOT \e[1;34;40m(Alt+F2; sudo /sbin/reboot).\e[0m"
-        echo -e "\t\e[1;31;40mNext time should be fine.\e[0m"
+        echo -e "\e[1;31;40mCleared up LVM \e[1;34;40m....continuing\e[0m"
+        sleep 5
     else
         echo -e "\t\e[1;37;41m-->>\e[1;31;40m please RESCRUB this drive.\e[0m"
         echo -e "\t\e[1;37;41m-or>\e[1;31;40m RC=${accum_RC}. CONTACT a staff member.\e[0m"
@@ -75,33 +75,44 @@ Handle_possible_lvm() {
     return $accum_RC
 }
 
-Handle_possible_lvm || exit $?
+Fix_RC=0
+Handle_possible_lvm || Fix_RC=$?
+if [ $Fix_RC -ge 10 ]
+then
+    exit
+fi
 
 Task_init 'Initializing partition table'
 sudo parted -s /dev/sda mklabel msdos\
     && Good_mess $Mess\
     || Prob_mess $? $Mess
 
-Task_init 'Creating boot partition' 1
-sudo parted -s -a optimal /dev/sda unit MiB mkpart primary ext2 0% 513\
+Task_init 'Creating boot partition'
+sudo parted -s -a optimal /dev/sda unit s mkpart primary ext2 0% 1050623\
     && Good_mess $Mess\
     || Prob_mess $? $Mess
 
-Task_init 'Creating main LVM partition' 1
-sudo parted -s -a optimal /dev/sda unit MiB mkpart primary ext2 513 55300\
+Task_init 'Creating swap partition'
+parted -s -a optimal /dev/sda unit s mkpart primary linux-swap 1050624 3147775\
     && Good_mess $Mess\
     || Prob_mess $? $Mess
-Task_init 'Setting LVM flag on' 1
-parted -s /dev/sda set 2 lvm on\
+Task_init 'Formatting swap partition' 
+mkswap /dev/sda2\
     && Good_mess $Mess\
     || Prob_mess $? $Mess
 
-Task_init 'Making LVM-ready partition with extra space' 1
-sudo parted -s -a optimal /dev/sda unit MiB mkpart primary ext2 55300 100%\
+Task_init 'Creating root partition'
+sudo parted -s -a optimal /dev/sda unit s mkpart primary ext2 3147776 22675455\
     && Good_mess $Mess\
     || Prob_mess $? $Mess
-Task_init 'Setting LVM flag on extra' 1
-parted -s /dev/sda set 3 lvm on\
+
+Task_init 'Creating extended partition'
+sudo parted -s -a optimal /dev/sda unit s mkpart extended 22677502 100%\
+    && Good_mess $Mess\
+    || Prob_mess $? $Mess
+
+Task_init 'Creating home partition'
+sudo parted -s -a optimal /dev/sda unit s mkpart logical ext4 22677504 100%\
     && Good_mess $Mess\
     || Prob_mess $? $Mess
 
@@ -115,16 +126,3 @@ fi
 echo -e "\nNewly created partition scheme:"
 fdisk -l /dev/sda
 
-#sudo /sbin/sfdisk --change-id /dev/sda 5 8e
-
-#ls -l /dev/sda*
-#cat /sys/block/sda/sda <tab>
-#echo 1 >/sys/block/sda/device/delete
-#cat >/sys/class/scsi_host/hostN/device/target1\:0\:0/1\:0\:0\:0/model (use find or tab key after "scsi_host")
-#echo '\''- - -'\'' > /sys/class/scsi_host/hostN/scan' "
-
-
-#Task_init 'Creating extended' 1
-#sudo parted -s -a optimal /dev/sda unit MiB mkpart extended 513 100%\
-#    && Good_mess $Mess\
-#    || Prob_mess $? $Mess

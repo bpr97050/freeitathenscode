@@ -14,7 +14,7 @@ echo 'Start QC.sh on '$hostname' '$(date +%s) |sudo tee $Merrors
 if [ $Down_late == 'Y' ]
 then
     echo "Downloading latest QC / imaging scripts" |sudo tee -a $Merrors
-    svn update ~/freeitathenscode/{QC_Process,image_scripts} & 2>&1 |sudo tee -a $Merrors
+    svn update ~/freeitathenscode/{QC_Process,image_scripts} &
     # redirect (>) output to bitbucket (/dev/null) keeps user 
     # from being overwhelmed with not-so-relevent messages.
     if [ $? == 0 ]; then
