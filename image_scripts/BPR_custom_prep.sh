@@ -1,9 +1,14 @@
 #!/bin/bash
 set -u
+<<<<<<< HEAD
+=======
+
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 custom_dotfiles_id='FRITAdot'
 declare -r uri_desktop_files=\
 'https://github.com/bpr97050/'${custom_dotfiles_id}'.git'
 
+<<<<<<< HEAD
 sys_dir_chromium='/etc/chromium-browser'
 declare -r uri_chromium_mastprefs=\
 'https://gist.githubusercontent.com/bpr97050/a714210a8759b7ccc89c/raw/'
@@ -16,6 +21,19 @@ declare -r uri_chromium_bookmarks=\
 file_chromium_defaults='default'
 declare -r sys_path_chromium_defaults=\
 "${sys_dir_chromium}/$file_chromium_defaults"
+=======
+declare -r uri_chromium_mastprefs=\
+'https://gist.githubusercontent.com/bpr97050/a714210a8759b7ccc89c/raw/'
+dirname_sys_chromium='/etc/chromium-browser'
+
+declare -r uri_chromium_bookmarks=\
+'https://gist.github.com/bpr97050/b6b5679f94d344879328/raw'
+filename_chromium_bookmarks='default_bookmarks.html'
+
+file_chromium_defaults='default'
+declare -r filepath_sys_chromium_defaults=\
+"${dirname_sys_chromium}/$file_chromium_defaults"
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
 declare -r uri_pepperflash_codex_installer=\
 'https://gist.githubusercontent.com/bpr97050/9899740/raw'
@@ -24,7 +42,11 @@ declare -r uri_firefox_prefs=\
 'https://gist.github.com/bpr97050/eb37e9850e2d951bc676/raw'
 file_firefox_prefs='syspref.js'
 sys_dir_firefox='/etc/firefox'
+<<<<<<< HEAD
 sys_path_firefox_prefs="${sys_dir_firefox}/$file_firefox_prefs"
+=======
+filepath_ff_prefs_sys="${sys_dir_firefox}/$file_firefox_prefs"
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
 #TODO: Following link is broken (HTTP 404)
 declare -r uri_firefox_bookmarks='http://a.pomf.se/kyiput.sqlite'
@@ -32,15 +54,27 @@ declare -r uri_firefox_bookmarks='http://a.pomf.se/kyiput.sqlite'
 [[ -z $live_run ]] && live_run='N'
 [[ -z $refresh_git ]] && refresh_git='N'
 [[ -z $codebase ]] && codebase="${HOME}/freeitathenscode/image_scripts"
+<<<<<<< HEAD
+=======
+source /home/oem/freeitathenscode/image_scripts/Prepare_functions || exit 99
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
 Mainline() {
 
+    DOWNLOADS="/home/$(id -n -u)/Downloads"
+    Pre_Verify_Downloads_dir
+
     Run_apt_update || return $?
 
+<<<<<<< HEAD
     cd $DOWNLOADS
     Download_custom_desktop_files\
         || echo 'Download_custom_desktop_files: Problem?'
     cd -
+=======
+    Download_custom_desktop_files\
+        || echo 'Download_custom_desktop_files: Problem?'
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
     Firefox_stuff || echo 'Firefox Config: Problem?'
     Chromium_stuff || echo 'Chromium Config: Problem?'
@@ -52,19 +86,31 @@ Mainline() {
         sudo dpkg-reconfigure -plow unattended-upgrades
 
     # -*- Install / update patches now -*-
+<<<<<<< HEAD
     Pauze 'apt-get dist-upgrade'
+=======
+    Prompt_time "apt-get dist-upgrade"
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
     sudo apt-get dist-upgrade
-    Pauze 'apt-get purge autoremove and autoclean'
+
+    Prompt_time 'apt-get purge autoremove and autoclean'
     sudo apt-get --purge autoremove
     sudo apt-get autoclean
 
+<<<<<<< HEAD
     Pauze "INFO,Finished with BPR custom code. last RC: $?"
+=======
+    Post_Verify_Downloads_dir
+    Prompt_time "Finished with BPR custom code. last RC: $?"
+
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
     return 0
 }
 
 Download_custom_desktop_files() {
 
     local RC=0
+<<<<<<< HEAD
 
     Activate_shopts
     if [[ -d $custom_dotfiles_id ]]
@@ -83,7 +129,44 @@ Download_custom_desktop_files() {
     Pauze 'Now do Manual Moves (where appropriate) to /etc/skel/'
     #bash ||RC=$?
     Reset_shopts
+=======
 
+    cd $DOWNLOADS
+    if [[ -d $custom_dotfiles_id ]]
+    then
+        rm -rf ${custom_dotfiles_id}/* ||RC=$?
+    else
+        mkdir $custom_dotfiles_id ||RC=$?
+    fi
+    if [ $RC -gt 0 ];then cd -;return $RC;fi
+
+    if [[ $refresh_git != 'Y' ]]
+    then
+	cd -
+	return 0
+    fi
+
+    cd $custom_dotfiles_id ||RC=$?
+    if [ $RC -gt 0 ];then cd -;return $RC;fi
+
+    Activate_shopts
+    git clone $uri_desktop_files ||RC=$?
+    if [ $RC -gt 0 ]
+    then
+	Reset_shopts
+	cd -
+	return $RC
+    fi
+
+    (echo -e "Sample Contents in $PWD\n";\
+	find . -type f -exec head -n4 {} \;)|\
+	od -Ax -taz |less
+    Prompt_time "Now do Manual Moves (where appropriate) to /etc/skel/"
+    #bash ||RC=$?
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
+
+    Reset_shopts
+    cd -
     return $RC
 }
 
@@ -114,6 +197,7 @@ Firefox_stuff() {
     #sudo apt-get install firefox || return 16
     which firefox || return 16
 
+<<<<<<< HEAD
     src_path_firefox_prefs="${DOWNLOADS}/$file_firefox_prefs"
     # Options for Firefox bookmarks and settings
     wget -O $src_path_firefox_prefs $uri_firefox_prefs
@@ -131,6 +215,19 @@ Firefox_stuff() {
     [[ "${Answer}." == 'Y.' ]] &&\
         sudo cp -iv ${src_path_firefox_prefs} $sys_path_firefox_prefs
     RC=$?
+=======
+    filepath_ff_prefs_src="${DOWNLOADS}/$file_firefox_prefs"
+    wget -O $filepath_ff_prefs_src $uri_firefox_prefs
+
+    if [[ $live_run != 'Y' ]]
+    then
+	Prompt_time 'DRY RUN: action would be "cp -iv '\
+	    ${filepath_ff_prefs_src}' '$filepath_ff_prefs_sys'"'
+        return 0
+    fi
+
+    Backup_and_Customize $filepath_ff_prefs_src $filepath_ff_prefs_sys;RC=$?
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
     [[ $RC -eq 0 ]] && timeout -k 1m 5s firefox
 
     return $RC
@@ -143,12 +240,20 @@ Firefox_stuff() {
 #rm -iv ${HOME}/.mozilla/firefox/*.default/places.sqlite{,-*} 
 #cp -iv ${DOWNLOADS}/places.sqlite
 #    ${HOME}/.mozilla/firefox/*.default/places.sqlite
+<<<<<<< HEAD
+=======
+#wget -O ${DOWNLOADS}/places.sqlite $uri_firefox_bookmarks
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
 Chromium_stuff() {
 
     local RC=0
 
+<<<<<<< HEAD
     Pauze 'Ensure latest chromium-browser is installed'
+=======
+    Prompt_time 'Ensure latest chromium-browser is installed'
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
     sudo apt-get install chromium-browser
 
     Chromium_master_pref
@@ -162,6 +267,7 @@ Chromium_stuff() {
 Chromium_master_pref() {
 
     local RC=0
+<<<<<<< HEAD
 
     file_mastprefs='master_preferences'
     src_path_mastprefs="${DOWNLOADS}/${file_mastprefs}"
@@ -186,12 +292,36 @@ Chromium_master_pref() {
     then
         sudo cp -iv ${src_path_mastprefs} ${sys_dir_chromium}/ ||RC=$?
     fi
+=======
+    filename_mast_prefs='master_preferences'
+    filepath_mast_prefs_src="${DOWNLOADS}/${filename_mast_prefs}"
+
+    Prompt_time 'Install chromium master prefs. $live_run='\
+	$live_run', $refresh_git='$refresh_git
+    if [[ $refresh_git == 'Y' ]]
+    then
+        wget -O ${filepath_mast_prefs_src} $uri_chromium_mastprefs
+	RC=$?
+    fi
+
+    filepath_mast_prefs_sys=${dirname_sys_chromium}/${filename_mast_prefs}
+    if [[ $live_run != 'Y' ]]
+    then
+        Prompt_time 'DRY RUN: would normally exec: "cp -iv '\
+	    $filepath_mast_prefs_src\
+	    ' '$filepath_mast_prefs_sys'"'
+        return 0
+    fi
+
+    Backup_and_Customize $filepath_mast_prefs_src $filepath_mast_prefs_sys ||RC=$?
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
     return $RC
 }
 
 Chromium_defaults() {
 
+<<<<<<< HEAD
     if [[ $live_run != 'Y' ]]
     then
         grep 'CHROMIUM_FLAGS' $sys_path_chromium_defaults
@@ -211,12 +341,33 @@ CHROMIUM_FLAGS=${CHROMIUM_FLAGS}' --start-maximized --disable-new-tab-first-run 
     echo 'CHROMIUM_FLAGS='$CHROMIUM_FLAGS |sudo tee -a $sys_path_chromium_defaults
     Pauze 'Written to '$sys_path_chromium_defaults'. Now going into edit...'
     sudo vim $sys_path_chromium_defaults
+=======
+    echo 'Current Chromium flags:'
+    grep 'CHROMIUM_FLAGS=' $filepath_sys_chromium_defaults
+    grep -P 'CHROMIUM_FLAGS=.+--ssl-version-min=tls1' $filepath_sys_chromium_defaults;RCxCF=$?
+    if [[ $RCxCF -eq 0 ]]
+    then
+        Prompt_time 'Chromium Flags (appear to be) Already Updated.'
+	return 0
+    fi
+
+    if [[ $live_run != 'Y' ]]
+    then
+        Prompt_time 'DRY RUN: Not changing Chromium flags yet ... '
+	return 0
+    fi
+    
+    Prompt_time 'Behold! CHROMIUM_FLAGS! Preparing to edit in-place...'
+    sudo perl -pi'.bak' -ne 's/^(CHROMIUM_FLAGS=".+)"/${1} --start-maximized --no-first-run --ssl-version-min=tls1 --disable-google-now-integration"/;' $filepath_sys_chromium_defaults
+    sudo mv -iv ${filepath_sys_chromium_defaults}.bak $HOME
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
     return $?
 }
 
 Chromium_bookmarks() {
 
+<<<<<<< HEAD
     src_path_chromium_bookmarks="${DOWNLOADS}/file_chromium_bookmarks"
     if [[ $live_run != 'Y' ]]
     then
@@ -227,6 +378,21 @@ Chromium_bookmarks() {
     wget -O $src_path_chromium_bookmarks $uri_chromium_bookmarks
     cp -iv --backup=t $sys_path_chromium_bookmarks /tmp
     sudo cp -iv $src_path_chromium_bookmarks ${sys_dir_chromium}/
+=======
+    filepath_chromium_bookmarks_src="${DOWNLOADS}/$filename_chromium_bookmarks"
+    filepath_chromium_bookmarks_sys="${dirname_sys_chromium}/$filename_chromium_bookmarks"
+    wget -O $filepath_chromium_bookmarks_src $uri_chromium_bookmarks
+
+    if [[ $live_run != 'Y' ]]
+    then
+	Prompt_time 'DRY RUN, live would do "cp -iv '\
+	    $filepath_chromium_bookmarks_src\
+	    $filepath_chromium_bookmarks_sys'"'
+	return 0
+    fi
+
+    Backup_and_Customize $filepath_chromium_bookmarks_src $filepath_chromium_bookmarks_sys
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
     return $?
 }
@@ -241,7 +407,11 @@ Chromium_nonfree_codex_prep() {
         && RCxPSS=0
 
     [[ $RCxPSS -eq 0 ]] &&\
+<<<<<<< HEAD
         Pauze 'Make icon on desktop that runs /usr/local/bin/install_nonfree_codex'
+=======
+	Prompt_time 'TODO: Make icon on desktop that runs /usr/local/bin/install_nonfree_codex'
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
     return $RCxPSS
 }
@@ -261,11 +431,12 @@ Set_backgrounds() {
         done
     elif [ -d /etc/mdm/ ]
     then
-        Pauze '/etc/mdm/conf: Set BackgroundColor in [ greeter ] stanza to #00e5a0'
+	Prompt_time '/etc/mdm/conf: Set BackgroundColor in [ greeter ] stanza to #00e5a0'
     fi
     #sudo sed -i 's/^background=/#background=/g' /etc/lightdm/lightdm-gtk-greeter.conf
 }
 
+<<<<<<< HEAD
 source /home/oem/freeitathenscode/image_scripts/Prepare_functions || exit 99
 
 DOWNLOADS="/home/$(id -n -u)/Downloads"
@@ -283,6 +454,65 @@ Mainline
 find $DOWNLOADS -not -uid $UID -exec sudo chown -c $UID {} \;
 find ${DOWNLOADS} -cmin -12
 Pauze 'Downloaded files this run (above).'
+=======
+Backup_and_Customize() {
+    local filepath_source=$1
+    local filepath_target=$2
+
+    filepath_diff=${filepath_diff_temp}'.diff'
+    set -e
+    if [ -f $filepath_target ]
+    then
+	cp -v --backup=t $filepath_target ${HOME}/
+        diff $filepath_target $filepath_source\
+	    >$filepath_diff
+	[[ -s  $filepath_diff ]] || less $filepath_diff
+    fi
+    sudo cp -iv $filepath_source $filepath_target
+
+    return $?
+}
+
+Pre_Verify_Downloads_dir() {
+
+    [[ -d ${DOWNLOADS} ]] || mkdir $DOWNLOADS
+    [[ -d ${DOWNLOADS} ]] || exit 13
+
+    cd $DOWNLOADS || exit 14
+    find $DOWNLOADS -not -uid $UID -exec sudo chown -c $UID {} \;
+    echo -e "\n\n"
+    find ${DOWNLOADS} -type f
+    echo 'Downloaded files previous run (above).'
+    Prompt_time 'Confirm or CONTROL-C'
+
+}
+
+Post_Verify_Downloads_dir() {
+
+    find $DOWNLOADS -not -uid $UID -exec sudo chown -c $UID {} \;
+    echo -e "\n\n"
+    find ${DOWNLOADS} -type f -cmin -12
+    echo 'Downloaded files this run (above).'
+    Prompt_time 'Confirm or CONTROL-C'
+
+}
+
+timeout=12
+Prompt_time() {
+    mess=$@
+    local RC=0
+
+    echo -e "\e[1;32;40m"
+    read -t$timeout -p"$mess <ENTER>";RC=$?
+    echo -e "\e[0m"
+
+    return $RC
+}
+
+filepath_diff_temp=$(mktemp -t prepare.XXX) || exit 99
+
+Mainline
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
 #Wine stuff in case the user needs to run a Windows executable
 #sudo apt-get install wine winetricks
@@ -291,9 +521,18 @@ Pauze 'Downloaded files this run (above).'
    #     sudo sed -i 's/CHROMIUM_FLAGS=""/CHROMIUM_FLAGS="--start-maximized
    #     --disable-new-tab-first-run --no-first-run --ssl-version-min=tls1
    #     --disable-google-now-integration"/g' /etc/chromium-browser/default
+<<<<<<< HEAD
 
     #sudo add-apt-repository ppa:skunk/pepper-flash
     #sudo apt-get install pepflashplugin-installer
     #   && echo '. /usr/lib/pepflashplugin-installer/pepflashplayer.sh'
 #https://github.com/freeITathens/freeitathenscode/blob/master/image_scripts/BPR_xt_lubuntu_32bit.sh
+=======
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
+    #sudo add-apt-repository ppa:skunk/pepper-flash
+    #sudo apt-get install pepflashplugin-installer
+    #   && echo '. /usr/lib/pepflashplugin-installer/pepflashplayer.sh'
+#https://github.com/freeITathens/freeitathenscode/blob/master/image_scripts/BPR_xt_lubuntu_32bit.sh
+    #Pause_n_Answer 'Y|N' 'WARN,Customize Default Settings?'
+    Prompt_time "HaVe A nIcE dAy"

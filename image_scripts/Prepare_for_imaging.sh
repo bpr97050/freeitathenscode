@@ -79,10 +79,14 @@ Housekeeping() {
     Get_Address_Len
     Confirm_DISTRO_CPU || User_no_distro_bye $?
 
-    [[ "${refresh_updatedb}." == 'Y.' ]] && updatedb &
+    [[ "${refresh_updatedb}." == 'Y.' ]] && sudo updatedb
     [[ "${refresh_svn}." == 'Y.' ]] && Contact_server
 
+<<<<<<< HEAD
     [[ $aptcache_needs_update == 'Y' ]] && Run_apt_update
+=======
+    Run_apt_update
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
     #Pauze 'Confirm no medibuntu in apt sources'
     #egrep -v '^\s*(#|$)' /etc/apt/sources.list |grep medi && sudo vi /etc/apt/sources.list
@@ -187,7 +191,7 @@ Confirm_DISTRO_CPU() {
         distro_valid_flag='Y'
         prettyprint '1,34,40,M' ' a valid'
         ;;
-    debian|SolydXK)
+    debian|Solyd*)
         distro_generia='debian'
         distro_valid_flag='Y'
         prettyprint '1,34,40,M' ' a valid'
@@ -260,7 +264,7 @@ Integrity_check() {
     Pauze 'Verify you have a home bin dir. And that QC / other scripts are present'
 
     (find ${SOURCEBASE}/QC_Process -iname 'Quality*' -exec md5sum {} \; ;\
-        find ${SOURCEBASE}/QC_process_dev/Master_${address_len} -iname 'Quality*' -exec md5sum {} \; ;\
+        find ${SOURCEBASE}/Development/Master_${address_len} -iname 'Quality*' -exec md5sum {} \; ;\
         find ${HOME}/Desktop -iname 'Quality*' -exec md5sum {} \;) |grep -v '\.svn' |sort
     Pauze 'Verify that the correct Run Quality Control icon is in place...'
 
@@ -283,7 +287,11 @@ Install_Remove_requested_packages() {
     Pauze 'Install necessary packages'
     RCxPK=0
     Install_packages_from_file_list $pathname_packages_list || RCxPK=$?
+<<<<<<< HEAD
     [[ $RCxPK -ne 0 ]] && Pauze 'Problems Installing Packages:'$RCxPK
+=======
+    #[[ $RCxPK -ne 0 ]] && Pauze 'Problems Installing Packages:'$RCxPK
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
     if [ $address_len -eq 64 ]
     then
@@ -306,7 +314,10 @@ Install_packages_from_file_list() {
         if [ $RCa -gt 0 ]
         then
             echo 'Problem with package '$pkg_name
+<<<<<<< HEAD
             ((RCz+=$RCa))
+=======
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
         fi
     done
     return $RCz
@@ -331,7 +342,11 @@ Process_package() {
     [[ $pkg_info_L -gt 3 ]] && (Check_extra $pkg_name ${pkg_info_a[3]} || RCxE=$?)
     [[ $RCxE -gt 10 ]] && return $RCxE
 
+<<<<<<< HEAD
     RCxDS=$RCxE
+=======
+    RCxDS=0
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
     Pkg_by_distro_session ${pkg_info_a[2]} || RCxDS=$?
 
     return $RCxDS
@@ -364,6 +379,10 @@ Check_extra() {
             ;;
         INSTALL)
             echo 'Check that '${extra_a[1]}' replaces '$pkg_name
+            return 0
+            ;;
+        WHY)
+            echo ${extra_a[1]}
             return 0
             ;;
         REMOVE)
@@ -577,6 +596,7 @@ do
             ;;
         h)
             echo $This_script
+<<<<<<< HEAD
             echo "A SET ADD_ALL='N'"
             echo "P SET PUR_ALL='N'"
             echo "b SET batch_run='Y'"
@@ -586,6 +606,18 @@ do
             echo "V SET refresh_svn='Y'"
             echo "G SET refresh_git='N'"
 
+=======
+	    echo "D makes live_run='Y'"
+            echo "A makes ADD_ALL='N'"
+            echo "P makes PUR_ALL='N'"
+            echo "b makes batch_run='Y'"
+            echo "n sets :Distro Name:"
+            echo "R makes aptcache_needs_update='N'"
+            echo "u makes refresh_updatedb='Y'"
+            echo "V makes refresh_svn='Y'"
+            echo "G makes refresh_git='N'"
+            #Optvalid='APbDn:RuVGh'
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
             echo '(Match up with '$Optvalid')'
             exit 0
             ;;
@@ -625,7 +657,11 @@ echo '$PUR_ALL'=$PUR_ALL
 
 declare -rx live_run
 [[ $live_run == 'Y' ]] && echo 'LIVE RUN Selected. System files COULD be changed!'
+<<<<<<< HEAD
 Pauze 'Confirm Selections <ENTER> ... or LEAVE <Control-C>'
+=======
+read -p'Confirm Selections <ENTER> ... or LEAVE <Control-C>'
+>>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
 Mainline
 
