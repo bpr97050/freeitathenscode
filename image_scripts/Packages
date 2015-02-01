@@ -5,11 +5,7 @@
 #    COLUMN 2 = ARCHITECTURE (32, 64, 0=any)
 #       COLUMN 3 = TARGET ({ALL|Distro Family Name}=install; NONE=purge)
 #          COLUMN 4 = EXTRA (ppa repo add; otherwise cross-package ins/purg info)
-<<<<<<< HEAD
-firmware-b43-installer,32,mint,why=make_avail_for_laptops
-=======
 #firmware-b43-installer,32,mint,WHY=make_avail_for_laptops
->>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 chromium-browser,0,ALL
 pepperflashplugin-nonfree,0,ALL
 aptitude,0,ALL,

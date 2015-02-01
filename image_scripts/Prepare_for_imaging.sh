@@ -82,11 +82,7 @@ Housekeeping() {
     [[ "${refresh_updatedb}." == 'Y.' ]] && sudo updatedb
     [[ "${refresh_svn}." == 'Y.' ]] && Contact_server
 
-<<<<<<< HEAD
-    [[ $aptcache_needs_update == 'Y' ]] && Run_apt_update
-=======
     Run_apt_update
->>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
     #Pauze 'Confirm no medibuntu in apt sources'
     #egrep -v '^\s*(#|$)' /etc/apt/sources.list |grep medi && sudo vi /etc/apt/sources.list
@@ -287,11 +283,7 @@ Install_Remove_requested_packages() {
     Pauze 'Install necessary packages'
     RCxPK=0
     Install_packages_from_file_list $pathname_packages_list || RCxPK=$?
-<<<<<<< HEAD
-    [[ $RCxPK -ne 0 ]] && Pauze 'Problems Installing Packages:'$RCxPK
-=======
     #[[ $RCxPK -ne 0 ]] && Pauze 'Problems Installing Packages:'$RCxPK
->>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
     if [ $address_len -eq 64 ]
     then
@@ -314,10 +306,6 @@ Install_packages_from_file_list() {
         if [ $RCa -gt 0 ]
         then
             echo 'Problem with package '$pkg_name
-<<<<<<< HEAD
-            ((RCz+=$RCa))
-=======
->>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
         fi
     done
     return $RCz
@@ -342,11 +330,7 @@ Process_package() {
     [[ $pkg_info_L -gt 3 ]] && (Check_extra $pkg_name ${pkg_info_a[3]} || RCxE=$?)
     [[ $RCxE -gt 10 ]] && return $RCxE
 
-<<<<<<< HEAD
-    RCxDS=$RCxE
-=======
     RCxDS=0
->>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
     Pkg_by_distro_session ${pkg_info_a[2]} || RCxDS=$?
 
     return $RCxDS
@@ -596,17 +580,6 @@ do
             ;;
         h)
             echo $This_script
-<<<<<<< HEAD
-            echo "A SET ADD_ALL='N'"
-            echo "P SET PUR_ALL='N'"
-            echo "b SET batch_run='Y'"
-            echo "n SET :Distro Name:"
-            echo "R SET aptcache_needs_update='N'"
-            echo "u SET refresh_updatedb='Y'"
-            echo "V SET refresh_svn='Y'"
-            echo "G SET refresh_git='N'"
-
-=======
 	    echo "D makes live_run='Y'"
             echo "A makes ADD_ALL='N'"
             echo "P makes PUR_ALL='N'"
@@ -617,7 +590,6 @@ do
             echo "V makes refresh_svn='Y'"
             echo "G makes refresh_git='N'"
             #Optvalid='APbDn:RuVGh'
->>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
             echo '(Match up with '$Optvalid')'
             exit 0
             ;;
@@ -657,11 +629,7 @@ echo '$PUR_ALL'=$PUR_ALL
 
 declare -rx live_run
 [[ $live_run == 'Y' ]] && echo 'LIVE RUN Selected. System files COULD be changed!'
-<<<<<<< HEAD
-Pauze 'Confirm Selections <ENTER> ... or LEAVE <Control-C>'
-=======
 read -p'Confirm Selections <ENTER> ... or LEAVE <Control-C>'
->>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
 Mainline
 

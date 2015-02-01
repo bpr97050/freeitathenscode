@@ -4,11 +4,7 @@ source ${codebase}/Common_functions || return 135
 
 Run_apt_update() {
 
-<<<<<<< HEAD
-    sudo $(which ifconfig || /bin/true)
-=======
     sudo ifconfig
->>>>>>> 1794e3c6e65b76da2ac89803adbcd640f136ea9e
 
     [[ $aptcache_needs_update == 'Y' ]] || return 0
 
