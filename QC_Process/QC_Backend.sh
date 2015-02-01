@@ -58,16 +58,27 @@ Housekeeping() {
     [[ -z $Found_hostname ]] && Found_hostname='fullyBogusName'
     # *--* For Master Box, update the Hostname to 
     #       'FritaAA-MMMdd', where AA is 32 or 64.
-    if [ $Master_test == 'M' ]
-    then
-	echo $0':Running Master QC Mode' >&2
-	echo 'Frita'${CPU_ADDRESS}-$(date +'%b%d') |sudo tee /etc/hostname
+    case $Master_test in
+    'M')
+        echo $0':Running Master QC Mode' >&2
+        echo 'Frita'${CPU_ADDRESS}-$(date +'%b%d') |sudo tee /etc/hostname
+        Alter_HOSTNAME
+        ;;
+    'm')
+	echo 'Not changing hostname '$Found_hostname' on master this run...'
 	sleep 3
-    else
+        ;;
+    *)
 	# *--* For Cloning Client, update the Hostname to 
 	#   'Frita64-date_in_seconds_since_1970 (or Frita32...)'
 	echo 'Frita'${CPU_ADDRESS}-$(date +'%s') |sudo tee /etc/hostname
-    fi
+	Alter_HOSTNAME
+        ;;
+    esac
+}
+
+Alter_HOSTNAME() {
+
     New_hostname=$(cat /etc/hostname)
     [[ -z $New_hostname ]] && New_hostname='AnotherFullyBogusName'
     sudo sed -i "s/$Found_hostname/$New_hostname/" /etc/hosts
@@ -78,6 +89,7 @@ Housekeeping() {
 	echo '   and from /etc/hosts: '$(grep '^127\.' /etc/hosts |grep -v 'localhost')
 	read -p'<OK?>'
     fi
+
 }
 
 Integrity_tests() {
@@ -536,23 +548,32 @@ read Xu
 }
 
 Test_ff_flash() {
+
     path2firefox=$(which firefox 2>/dev/null)
-    if [ -n "$path2firefox" ]
+    sample_video='https://www.youtube.com/watch?v=syHv0kuQCus'
+	    #http://www.youtube.com/watch?v=mwbgwZxodKE
+
+    if [ -z "$path2firefox" ]
     then
-        dialog --keep-tite --clear --colors --title "\Z7\ZrFree IT Athens Quality Control Test"\
-            --yesno "Test \Z4\ZrShockwave Flash\ZR \Z0in $path2firefox ?" 9 60
-        d_RC=$?
-        if [ $d_RC -eq 0 ]
-        then
-            $path2firefox -no-remote http://www.youtube.com/watch?v=mwbgwZxodKE 2>>$ERRFILE &
-            ice_PID=$!
-            echo $ice_PID 'process # for ff' >>$ERRFILE
-            Window_killa $ice_PID 40
-            Append_to_log 'INFO' 'Flash plugin test' 'Test was run'
-        fi
-    else
         Append_to_log 'PROB' 'Flash plugin test' 'This test is NOT possible'
+	return 1
     fi
+
+    dialog --keep-tite --clear --colors --title "\Z7\ZrFree IT Athens Quality Control Test"\
+	--yesno "Test \Z4\ZrShockwave Flash\ZR \Z0in $path2firefox ?" 9 60
+    d_RC=$?
+    if [ $d_RC -eq 0 ]
+    then
+	$path2firefox -no-remote\
+	    $sample_video\
+	    2>>$ERRFILE &
+	ice_PID=$!
+	echo $ice_PID 'process # for ff' >>$ERRFILE
+	Window_killa $ice_PID 40
+	Append_to_log 'INFO' 'Flash plugin test' 'Test was run'
+    fi
+
+    return 0
 }
 
 Window_killa() {

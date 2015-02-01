@@ -1,6 +1,7 @@
 #!/bin/bash +x
-[[ 0 -ne $(id |grep -o -P '^uid=\d+' |cut -f2 -d=) ]] &&\
-    read -p'NOTE: Permission Problems? Rerun with sudo (i.e., as root).<ENTER>' -t5
+[[ 0 -eq $(id |grep -o -P '^uid=\d+' |cut -f2 -d=) ]] &&\
+    read -p'NOTE: Please run as normal user with sudo privledges.<CONTROL-C>'
+# read -p'NOTE: Permission Problems Rerun with sudo (i.e., as root).<ENTER>' -t5
 
 # Establish base of version-controlled code tree.
 [[ -z $SOURCEBASE ]] && declare -x SOURCEBASE='/home/oem/freeitathenscode'
@@ -8,14 +9,13 @@
 # Establish location of these scripts within SOURCEBASE
 codebase=${SOURCEBASE}'/image_scripts'
 [[ -d $codebase ]] || exit 14
-
 declare -x codebase
 source ${codebase}/Prepare_functions || exit 136
 
-package_list_path_I=${codebase}'/Packages'
-wallpaper_filename='FreeIT.png'
-wallpaper_source_pathname=${codebase}/$wallpaper_filename
-wallpaper_system_dirname='/usr/share/backgrounds'
+pathname_packages_list=${codebase}'/Packages'
+filename_wallpaper='FreeIT.png'
+src_path_wallpaper=${codebase}/$filename_wallpaper
+sys_dir_wallpaper='/usr/share/backgrounds'
 wallpaper_was_setup='N'
 
 aptcache_needs_update='Y'
@@ -25,12 +25,7 @@ refresh_git='Y'
 ADD_ALL='Y'
 PUR_ALL='Y'
 live_run='N'
-Not_Batch_Run='N'
-
-This_script=$(basename $0)
-declare -rx Messages_O=$(mktemp -t "${This_script}_log.XXXXX")
-declare -rx Errors_O=$(mktemp -t "${This_script}_err.XXXXX")
-Optvalid='APBDn:RuVGh'
+batch_run='N'
 
 Mainline() {
 
@@ -38,16 +33,20 @@ Mainline() {
     Integrity_check
     Install_Remove_requested_packages
 
-    if [ $address_len -eq 64 ]
-    then
-        grep -o -P '^OnlyShowIn=.*MATE' /usr/share/applications/screensavers/*.desktop 
-        Pauze 'Mate Desktop able to access xscreensavers for ant spotlight?'
-    fi
+    case $distro_generia in
+        ubuntu|mint)
+            echo 'Run BPR Code'
+            [[ -f ${codebase}/BPR_custom_prep.sh ]] &&\
+                ${codebase}/BPR_custom_prep.sh
+            Pauze "Run BPR: Last return code: $?"
+            ;;
+        *)
+            Pauze "Don't need to run BPR additions for "$distro_generia' ('$DISTRO_NAME')'
+            ;;
+    esac
 
-    set -u
     Check_Setup_wallpaper;RCxW=$?
     Report_Check_Setup_wallpaper $RCxW
-    set +u
 
     Pauze 'Lauching Virtual Greybeard'
     clear
@@ -63,7 +62,7 @@ Mainline() {
 Housekeeping() {
 
     sys_rpts_distro_name=''
-    if [ -z $DISTRO_NAME ] 
+    if [ -z $DISTRO_NAME ]
     then
         Distro_name_Set;RCxDnS=$?
         if [ $RCxDnS -gt 0 ]
@@ -83,7 +82,6 @@ Housekeeping() {
     [[ "${refresh_updatedb}." == 'Y.' ]] && updatedb &
     [[ "${refresh_svn}." == 'Y.' ]] && Contact_server
 
-    Pauze 'Will update apt-metadata if requested (COND:'$aptcache_needs_update')'
     [[ $aptcache_needs_update == 'Y' ]] && Run_apt_update
 
     #Pauze 'Confirm no medibuntu in apt sources'
@@ -99,7 +97,7 @@ Distro_name_Set() {
     [[ $RCxS -eq 0 ]] || return 30
 
     DISTRO_NAME=$sys_rpts_distro_name
-    echo 'set' \$DISTRO_NAME '= '$DISTRO_NAME
+    #echo 'set' \$DISTRO_NAME '= '$DISTRO_NAME
     Answer='N'
     Pause_n_Answer 'Y|N' '...system value '${DISTRO_NAME}' is used, OK? '
     [[ "${Answer}." == 'Y.' ]] || return 12
@@ -133,10 +131,14 @@ Set_Confirm_distro_name() {
 
     echo 'System distro value ('\
         ${sys_rpts_distro_name}\
-          '): mismatch (however slight) with input: ('\
+          '): mismatch (however slight) with your supplied name: ('\
         ${DISTRO_NAME}').'
-    read -p'<ACCEPT(=Y)?>' -a ANS_ARR
-    [[ ${#ANS_ARR[*]} -gt 0 ]] && [[ ${ANS_ARR[0]} == 'Y' ]] && DISTRO_NAME=$sys_rpts_distro_name && return 0
+    echo ''
+    read -p'<ACCEPT System Value?>' -a ANS_ARR;echo ''
+    [[ ${#ANS_ARR[*]} -gt 0 ]] &&\
+        [[ ${ANS_ARR[0]} == 'Y' ]] &&\
+        DISTRO_NAME=$sys_rpts_distro_name &&\
+        return 0
 
     return 3
 }
@@ -149,8 +151,7 @@ Set_sys_rpts_distro_name() {
 
     if [ -n ${sys_rpts_distro_name} ]
     then
-        echo 'System reports distro as '${sys_rpts_distro_name}'.'
-        read -p'<ENTER>'
+        echo 'System reports distro as '${sys_rpts_distro_name}'.' >&2
         return 0
     fi
 
@@ -210,7 +211,8 @@ Confirm_DISTRO_CPU() {
     prettyprint '1,32,40,M,n' ' distribution name.'
     [[ $distro_valid_flag != 'Y' ]] && return 16
 
-    prettyprint '0,1,32,40,M,n' 'Using general distro (category) name of '$distro_generia'.'
+    prettyprint '0,1,32,40,M,n'\
+'Using general distro (category) name of '$distro_generia'.'
     Pauze "INFO,Confirmed $DISTRO_NAME on ${address_len}-bit box."
 
     return 0
@@ -226,90 +228,43 @@ User_no_distro_bye() {
     exit $RCxDC
 }
 
-Contact_server() {
-
-    Pauze "Check that server address is correct and is contactable ( COND: $refresh_svn )"
-
-    Sub_lcl_stat() {
-        echo 'Check on subversion local repo status'
-        if [ -d ${SOURCEBASE}/.svn ]
-        then
-            cd ${SOURCEBASE}/
-            svn update
-        else
-            apt-get install subversion
-            cd
-            Correct_subversion_ssh
-            svn co svn+ssh://frita@192.168.1.9/var/svn/Frita/freeitathenscode/
-        fi
-        Pauze '(DONE) Check on subversion local repo status'
-    }
-
-    [[ $(ssh frita@192.168.1.9 'echo $HOSTNAME') =~ 'nuvo-servo' ]]\
-        && Pauze 'Checked Server is valid: 192.168.1.9' && Sub_lcl_stat && return $?
-
-    return 1
-}
-
-Correct_subversion_ssh() {
-
-    subv_conf=''
-    for subversion_meta_dir in $(find '/home/'$(grep ':'$UID':' /etc/passwd |cut -f1 -d:) -maxdepth 1 -type d -name '.subversion';find /etc/ -maxdepth 1 -type d -name 'subversion')
-    do
-        subv_conf="${subversion_meta_dir}/config"
-        echo 'Checking subversion config path '$subv_conf
-        [[ -f ${subv_conf} ]] && break
-        subv_conf=''
-    done
-    [[ -z $subv_conf ]] && return 4
-
-    grep 'ssh' $subv_conf
-    Answer='N'
-    Pause_n_Answer 'Y|N' "Fix $subv_conf for Frita's ssh connection (Y|N)? "
-    case $Answer in
-        Y)
-            sudo perl -pi'.bak' -e 's/#\s*ssh\b(.+?ssh)\s+-q(.+)$/ssh${1} -v${2}/' ${subv_conf}
-            ;;
-        *)
-            Pauze 'OK, NO changes made...'
-            ;;
-    esac
-
-    return 0
-}
-
 Integrity_check() {
-    Pauze 'Check (absence of) local UUID reference for swap in fstab.'
+
     RCxU=1
     grep -P 'UUID.+swap' /etc/fstab && RCxU=$?
+    Pauze 'Verify (absence of) local UUID reference for swap in fstab.'
     if [ $RCxU -eq 0 ]
     then
-        Pauze 'fstab cAnNoT gO oN iMaGe wItH lOcAl UUID reference. Entering editor...'
-        sudo vi /etc/fstab
+        echo 'fstab cAnNoT gO oN iMaGe wItH lOcAl UUID reference'
+        Pauze '   but might be false positive...'
+        #Entering editor...'
+        #sudo vi /etc/fstab
     fi
 
-    Pauze 'Checking swap'
-    Run_Cap_Out sudo swapoff --all --verbose
-    Run_Cap_Out sudo swapon --all --verbose
+    sudo swapoff --all --verbose
+    Pauze 'Verify swap off'
+    sudo swapon --all --verbose
+    Pauze 'Verify swap on'
 
-    Pauze "Ensuring that QC.sh and revert_prep... are properly linked in ${HOME}/bin" 
     local_scripts_DIR="${HOME}/bin"
     [[ -d $local_scripts_DIR ]] || mkdir $local_scripts_DIR
     sudo chown -c oem $local_scripts_DIR
 
-    [[ -e ${local_scripts_DIR}/QC.sh ]] || ln -s ${SOURCEBASE}/QC_Process/QC.sh ${local_scripts_DIR}/QC.sh
-    [[ -e ${local_scripts_DIR}/revert_prep_for_shipping_to_eu ]]\
-        || ln -s ${codebase}/revert_prep_for_shipping_to_eu ${local_scripts_DIR}/revert_prep_for_shipping_to_eu 
-    find ${local_scripts_DIR} -ls
-    echo ''
+    [[ -e ${local_scripts_DIR}/QC.sh ]] ||\
+        ln -s ${SOURCEBASE}/QC_Process/QC.sh ${local_scripts_DIR}/QC.sh
+    [[ -e ${local_scripts_DIR}/revert_prep_for_shipping_to_eu ]] ||\
+        ln -s ${codebase}/revert_prep_for_shipping_to_eu\
+     ${local_scripts_DIR}/revert_prep_for_shipping_to_eu 
 
-    Pauze 'Confirming that the correct Run Quality Control icon is in place...'
+    find ${local_scripts_DIR} -ls
+    Pauze 'Verify you have a home bin dir. And that QC / other scripts are present'
+
     (find ${SOURCEBASE}/QC_Process -iname 'Quality*' -exec md5sum {} \; ;\
         find ${SOURCEBASE}/QC_process_dev/Master_${address_len} -iname 'Quality*' -exec md5sum {} \; ;\
         find ${HOME}/Desktop -iname 'Quality*' -exec md5sum {} \;) |grep -v '\.svn' |sort
-    echo ''
+    Pauze 'Verify that the correct Run Quality Control icon is in place...'
 
-    Pauze 'Done with Integrity Check'
+    #Pauze 'Done with Integrity Check'
 
     return 0
 }
@@ -327,50 +282,24 @@ Install_Remove_requested_packages() {
 
     Pauze 'Install necessary packages'
     RCxPK=0
-    Install_packages_from_file_list $package_list_path_I || RCxPK=$?
+    Install_packages_from_file_list $pathname_packages_list || RCxPK=$?
     [[ $RCxPK -ne 0 ]] && Pauze 'Problems Installing Packages:'$RCxPK
 
-    case $distro_generia in
-        ubuntu|mint)
-            echo 'Run BPR Code'
-            [[ -f ${codebase}/BPR_custom_prep.sh ]] &&\
-                ${codebase}/BPR_custom_prep.sh
-            Pauze "Run BPR: Last return code: $?"
-            ;;
-        *)
-            Pauze "Don't need to run BPR additions for "$distro_generia' ('$DISTRO_NAME')'
-            ;;
-    esac
+    if [ $address_len -eq 64 ]
+    then
+        grep -o -P '^OnlyShowIn=.*MATE' /usr/share/applications/screensavers/*.desktop
+        Pauze 'Mate Desktop able to access xscreensavers for ant spotlight?'
+    fi
 
     return 0
 }
+
+#This_script_dir=$(dirname $0)
 #for pkg_file in $(find $This_script_dir -maxdepth 1 -type f -name 'Packages*')
 
 Install_packages_from_file_list() {
     local package_list_file=$1
     RCz=0
-
-    Process_package() {
-        IFS=','
-        declare -ra pkg_info_a=($1)
-        IFS=$HOLDIFS
-
-        declare -r pkg_info_L=${#pkg_info_a[*]}
-        pkg_name=${pkg_info_a[0]}
-        pkg_by_addr=${pkg_info_a[1]}
-        [[ pkg_by_addr -eq 0 ]] && pkg_by_addr=$address_len
-        if [ $pkg_by_addr != $address_len ]
-        then
-            echo 'Skipping package '$pkg_name' on '$address_len' box.'
-            return 4
-        fi
-
-        RCxE=0
-        [[ $pkg_info_L -gt 3 ]] && (Check_extra $pkg_name ${pkg_info_a[3]} || RCxE=$?)
-        [[ $RCxE -gt 10 ]] && return $RCxE
-
-        Pkg_by_distro_session ${pkg_info_a[2]};RCxDS=$?
-    }
     for pkg_info_csv in $(grep -v '^#' $package_list_file)
     do
         Process_package $pkg_info_csv;RCa=$?
@@ -378,9 +307,34 @@ Install_packages_from_file_list() {
         then
             echo 'Problem with package '$pkg_name
             ((RCz+=$RCa))
-        fi 
+        fi
     done
     return $RCz
+}
+
+Process_package() {
+    IFS=','
+    declare -ra pkg_info_a=($1)
+    IFS=$HOLDIFS
+
+    declare -r pkg_info_L=${#pkg_info_a[*]}
+    pkg_name=${pkg_info_a[0]}
+    pkg_by_addr=${pkg_info_a[1]}
+    [[ pkg_by_addr -eq 0 ]] && pkg_by_addr=$address_len
+    if [ $pkg_by_addr != $address_len ]
+    then
+        echo 'Skipping package '$pkg_name' on '$address_len' box.'
+        return 0
+    fi
+
+    RCxE=0
+    [[ $pkg_info_L -gt 3 ]] && (Check_extra $pkg_name ${pkg_info_a[3]} || RCxE=$?)
+    [[ $RCxE -gt 10 ]] && return $RCxE
+
+    RCxDS=$RCxE
+    Pkg_by_distro_session ${pkg_info_a[2]} || RCxDS=$?
+
+    return $RCxDS
 }
 
 Check_extra() {
@@ -394,6 +348,7 @@ Check_extra() {
     IFS=$HOLDIFS
     declare extra_L=${#extra_a[*]}
     [[ $extra_L -gt 1 ]] || return 5
+
     case ${extra_a[0]} in
         ppa)
             RCxPPA=0
@@ -404,7 +359,7 @@ Check_extra() {
             then
                 Pauze 'Return code for ppa setup ='$RCxPPA
                 RCxPPA=0
-            fi 
+            fi
             return $RCxPPA
             ;;
         INSTALL)
@@ -506,36 +461,36 @@ Pkg_by_distro_session() {
 
 Check_Setup_wallpaper() {
 
-    [[ $DISTRO_NAME == 'lubuntu' ]] && wallpaper_system_dirname='/usr/share/lubuntu/wallpapers'
-    wallpaper_system_path=${wallpaper_system_dirname}/$wallpaper_filename
-    if [[ -e $wallpaper_system_path ]]
+    [[ $DISTRO_NAME == 'lubuntu' ]] &&\
+        sys_dir_wallpaper='/usr/share/lubuntu/wallpapers'
+    sys_path_wallpaper=${sys_dir_wallpaper}/$filename_wallpaper
+    if [[ -e $sys_path_wallpaper ]]
     then
         wallpaper_was_setup='Y'
         return 0
     fi
 
-    [[ -d $wallpaper_system_dirname ]] || return 5
-    
-    [[ -f $wallpaper_source_pathname ]] || return 6
+    [[ -d $sys_dir_wallpaper ]] || return 5
+    [[ -f $src_path_wallpaper ]] || return 6
+
+    if [ $live_run != 'Y' ]
+    then
+        Pauze 'DRY RUN: Would run cp -iv '${src_path_wallpaper}' '${sys_dir_wallpaper}'/'
+        return 0
+    fi
 
     Answer='Y'
-    Pause_n_Answer 'Y|N' 'INFO,Copy '$wallpaper_filename' to '$wallpaper_system_dirname'?'
+    Pause_n_Answer 'Y|N'\
+        'WARN,Copy '$filename_wallpaper' to '$sys_dir_wallpaper'?'
     if [ "${Answer}." == 'Y.' ]
     then
-        if [ $live_run != 'Y' ]
-        then
-            Pauze 'DRY RUN: Would run cp -iv '$wallpaper_source_pathname ${wallpaper_system_dirname}'/'
-            return 0
-        fi
-
-        sudo cp -iv $wallpaper_source_pathname ${wallpaper_system_dirname}/ || return 7
+        sudo cp -iv $src_path_wallpaper ${sys_dir_wallpaper}/\
+	    || return 7
         return 0
-
     fi
 
     return 1
 }
-# find ${wallpaper_system_dir}/ -name "$wallpaper_file" &
 
 Report_Check_Setup_wallpaper() {
     local RCi=$1
@@ -545,25 +500,24 @@ Report_Check_Setup_wallpaper() {
     case $RCi in
         0)
             [[ $wallpaper_was_setup == 'N' ]] && echo 'Wallpaper successfully setup'
-            Pauze 'Wallpaper is in place:'$wallpaper_system_path
+            Pauze 'Wallpaper is in place:'$sys_path_wallpaper
             ;;
         1)
             Pauze 'WARNING, wallpaper setup will be done later...'
             ;;
         6)
-            Pauze 'Invalid wallpaper source pathname '$wallpaper_source_pathname
+            Pauze 'Invalid wallpaper source pathname '$src_path_wallpaper
             ;;
         5)
-            Pauze 'Invalid wallpaper System Location: '$wallpaper_system_dirname
+            Pauze 'Invalid wallpaper System Location: '$sys_dir_wallpaper
             ;;
         7)
-            Pauze 'Cannot copy wallpaper to '$wallpaper_system_dirname
+            Pauze 'Cannot copy wallpaper to '$sys_dir_wallpaper
             ;;
         *)
             Pauze 'Invalid code:'${RCi}' Wallpaper report'
             ;;
     esac
-    set +u
     return 0
 }
 
@@ -581,6 +535,15 @@ Cleanup_nouser_nogroup() {
     return 0
 }
 
+# -*- Execution continues here. Mainline (below) invokes driving function -*-
+set -u
+declare -r HOLDIFS=$IFS
+This_script=$(basename $0)
+declare -rx Messages_O=$(mktemp -t "${This_script}_log.XXXXX")
+declare -rx Errors_O=$(mktemp -t "${This_script}_err.XXXXX")
+
+# -*- Process any command line Options -*-
+Optvalid='APbDn:RuVGh'
 while getopts $Optvalid OPT
 do
     case $OPT in
@@ -592,11 +555,9 @@ do
             ;;
         D)
             live_run='Y'
-            Pauze 'LIVE RUN Selected. Control-C now to exit.'
             ;;
-        B)
-            Not_Batch_Run='Y'
-            echo 'Interactive Run'
+        b)
+            batch_run='Y'
             ;;
         n)
             Set_Confirm_distro_name $OPTARG;RCx1=$?
@@ -615,11 +576,10 @@ do
             refresh_git='N'
             ;;
         h)
-            echo $This_script\
-            ': Valid options are [ -A -P -B -d{distro} -R -u -V -G -b{SrcBase} -h]'
+            echo $This_script
             echo "A SET ADD_ALL='N'"
             echo "P SET PUR_ALL='N'"
-            echo "B SET Not_Batch_Run='Y'"
+            echo "b SET batch_run='Y'"
             echo "n SET :Distro Name:"
             echo "R SET aptcache_needs_update='N'"
             echo "u SET refresh_updatedb='Y'"
@@ -635,15 +595,37 @@ do
             ;;
     esac
 done
+
+echo -ne "\n\n\e[1;31;40m"\
+'*---------------------------------------------------------------*'
+echo -e "\e[0m"
+
+# -x = let child processes inherit
+# -r = make value permanent (read-only)
 declare -x aptcache_needs_update
 declare -x refresh_svn
 declare -x refresh_git
 declare -r ADD_ALL
 declare -r PUR_ALL
-declare -rx Not_Batch_Run
+declare -rx batch_run
+[[ $batch_run == 'Y' ]] || Pauze 'Interactive Run Selected'
 
-declare -r HOLDIFS=$IFS
-This_script_dir=$(dirname $0)
+echo '$SOURCEBASE='$SOURCEBASE
+echo '$codebase='$codebase
+echo '$pathname_packages_list'=$pathname_packages_list
+echo '$filename_wallpaper'=$filename_wallpaper
+echo '$src_path_wallpaper'=$src_path_wallpaper
+echo '$sys_dir_wallpaper'=$sys_dir_wallpaper
+echo '$aptcache_needs_update'=$aptcache_needs_update
+echo '$refresh_updatedb'=$refresh_updatedb
+echo '$refresh_svn'=$refresh_svn
+echo '$refresh_git'=$refresh_git
+echo '$ADD_ALL'=$ADD_ALL
+echo '$PUR_ALL'=$PUR_ALL
+
+declare -rx live_run
+[[ $live_run == 'Y' ]] && echo 'LIVE RUN Selected. System files COULD be changed!'
+Pauze 'Confirm Selections <ENTER> ... or LEAVE <Control-C>'
 
 Mainline
 
@@ -651,7 +633,7 @@ Mainline
 [[ -z $PIDng ]] || echo 'Check on process '$PIDng
 
 # Make the version-controlled tree - SOURCEBASE --
-#  -- let child processes inherit (-x)
 
-#PKGS='lm-sensors hddtemp ethtool gimp firefox dialog xscreensaver-gl libreoffice aptitude vim flashplugin-installer htop inxi vrms mintdrivers gparted terminator hardinfo'
-
+#PKGS='lm-sensors hddtemp ethtool gimp firefox 
+#  dialog xscreensaver-gl libreoffice aptitude vim
+#  flashplugin-installer htop inxi vrms mintdrivers gparted terminator hardinfo'
